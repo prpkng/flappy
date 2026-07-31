@@ -1,8 +1,12 @@
+mod debug;
 mod gameplay;
 mod pipes;
+mod utils;
 mod player;
 
-use crate::{gameplay::GameplayPlugin, pipes::PipePlugin, player::PlayerPlugin};
+use crate::{
+    debug::DebugPlugin, gameplay::GameplayPlugin, pipes::PipePlugin, player::PlayerPlugin,
+};
 use bevy::{prelude::*, window::WindowResolution};
 
 fn main() {
@@ -20,6 +24,11 @@ fn main() {
                 })
                 .set(ImagePlugin::default_nearest()),
         )
-        .add_plugins((PlayerPlugin {}, GameplayPlugin {}, PipePlugin {}))
+        .add_plugins((
+            PlayerPlugin {},
+            GameplayPlugin {},
+            PipePlugin {},
+            DebugPlugin {},
+        ))
         .run();
 }

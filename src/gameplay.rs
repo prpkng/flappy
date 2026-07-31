@@ -11,6 +11,10 @@ pub const GAME_HEIGHT: f32 = 256.0;
 pub struct GameplayPlugin;
 
 #[derive(Component)]
+pub struct AABB {
+    pub rect: Rect,
+}
+#[derive(Component)]
 struct Parallax {
     speed: f32,
 }
@@ -72,6 +76,7 @@ fn parallax_system(
     time: Res<Time>,
     images: Res<Assets<Image>>,
 ) {
+
     for (mut spr, parallax) in query {
         if let Some(rect) = spr.rect.as_mut() {
             rect.min.x += parallax.speed * time.delta_secs();
