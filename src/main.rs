@@ -3,11 +3,12 @@ mod gameplay;
 mod pipes;
 mod utils;
 mod player;
+mod ui;
 
 use crate::{
-    debug::DebugPlugin, gameplay::GameplayPlugin, pipes::PipePlugin, player::PlayerPlugin,
+    debug::DebugPlugin, gameplay::GameplayPlugin, pipes::PipePlugin, player::PlayerPlugin, ui::GameUIPlugin,
 };
-use bevy::{prelude::*, window::WindowResolution};
+use bevy::{prelude::*, ui::UiPlugin, window::WindowResolution};
 
 fn main() {
     App::new()
@@ -29,6 +30,7 @@ fn main() {
             GameplayPlugin {},
             PipePlugin {},
             DebugPlugin {},
+            GameUIPlugin {},
         ))
         .run();
 }

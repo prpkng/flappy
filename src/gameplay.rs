@@ -36,6 +36,9 @@ struct Parallax {
 }
 
 #[derive(Component)]
+pub struct MainCamera;
+
+#[derive(Component)]
 struct Title;
 
 pub struct GameplayPlugin;
@@ -85,6 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             allow_imperfect_downscaled_boxing: false,
         },
         Projection::Orthographic(projection),
+        MainCamera{},
     ));
 
     commands.spawn((

@@ -68,6 +68,7 @@ fn spawn_player(
     let animation_indices = AnimationIndices { frames: vec![0, 0, 1, 2, 1], current_index: 0 };
 
     commands.spawn((
+        Name::new("Player"),
         Player {},
         Velocity::default(),
         // Transform::from_translation(Vec3::new(-16., 0., 5.)),
