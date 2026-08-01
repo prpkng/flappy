@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    gameplay::{AABB, GAME_HEIGHT},
+    gameplay::{AABB, GAME_HEIGHT, GameState},
     pipes::Pipe,
     utils::InterpExt,
 };
@@ -9,6 +9,9 @@ use crate::{
 const GRAVITY: f32 = 320.0;
 const MAX_FALL_SPEED: f32 = 180.0;
 const JUMP_FORCE: f32 = 135.0;
+
+#[derive(Event)]
+pub struct PlayerDeath {}
 
 pub struct PlayerPlugin {}
 
@@ -21,33 +24,102 @@ struct Velocity {
 #[derive(Component)]
 struct Player;
 
+#[derive(Component)]
+struct AnimationIndices {
+    frames: Vec<usize>,
+    current_index: usize,
+}
+
+#[derive(Component, Deref, DerefMut)]
+struct AnimationTimer(Timer);
+
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup);
+        app.add_systems(Startup, spawn_player);
 
         app.add_systems(
             Update,
             (
-                player_gravity,
-                player_input,
-                player_rotation,
-                player_collisions,
+                animate_sprites,
+                (menu_sine_wave)
+                    .run_if(not(in_state(GameState::InGame))),
+                (
+                    player_gravity,
+                    player_input,
+                    player_rotation,
+                    player_collisions,
+                )
+                    .run_if(in_state(GameState::InGame)),
             ),
         );
+
+        app.add_observer(on_player_death);
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn spawn_player(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+) {
+    let texture = asset_server.load("bird.png");
+    let layout = TextureAtlasLayout::from_grid(UVec2::splat(32), 4, 1, None, None);
+    let atlas_layout = atlas_layouts.add(layout);
+    let animation_indices = AnimationIndices { frames: vec![0, 0, 1, 2, 1], current_index: 0 };
+
     commands.spawn((
         Player {},
         Velocity::default(),
+        // Transform::from_translation(Vec3::new(-16., 0., 5.)),
         Transform::from_translation(Vec3::new(0., 0., 5.)),
-        Sprite::from_image(asset_server.load("bird1.png")),
+        Sprite::from_atlas_image(
+            texture,
+            TextureAtlas {
+                layout: atlas_layout,
+                index: animation_indices.frames[0],
+            },
+        ),
+        animation_indices,
+        AnimationTimer(Timer::from_seconds(1.0/13.0, TimerMode::Repeating)),
         AABB {
-            rect: Rect::from_center_size(Vec2::ZERO, Vec2::ONE*16.0),
+            rect: Rect::from_center_size(Vec2::ZERO, Vec2::ONE * 16.0),
         },
     ));
 }
+
+fn animate_sprites(
+    time: Res<Time>,
+    mut query: Query<(&mut AnimationIndices, &mut AnimationTimer, &mut Sprite)>,
+) {
+    for (mut indices, mut timer, mut sprite) in &mut query {
+        timer.tick(time.delta());
+
+        if timer.just_finished()
+            && let Some(atlas) = &mut sprite.texture_atlas
+        {
+            indices.current_index = if indices.current_index >= indices.frames.len()-1 {
+                0
+            } else {
+                indices.current_index + 1
+            };
+            atlas.index = indices.frames[indices.current_index];
+        }
+    }
+}
+
+
+// ==== IN MENU =====
+
+const MENU_SINE_FREQ: f32 = 7.5;
+const MENU_SINE_AMP: f32 = 4.;
+
+fn menu_sine_wave(mut query: Query<&mut Transform, With<Player>>, time: Res<Time>) {
+    let Ok(mut transform) = query.single_mut() else { return; };
+
+    transform.translation.y = 16. + f32::sin(time.elapsed_secs() * MENU_SINE_FREQ) * MENU_SINE_AMP;
+}
+
+// ==== IN GAME =====
 
 fn player_input(mut query: Query<&mut Velocity, With<Player>>, input: Res<ButtonInput<KeyCode>>) {
     let Ok(mut velocity) = query.single_mut() else {
@@ -90,12 +162,11 @@ fn player_rotation(mut query: Query<(&mut Transform, &Velocity), With<Player>>, 
 }
 
 fn player_collisions(
-    mut q_player: Query<(&mut Transform, &AABB, &mut Velocity), With<Player>>,
+    mut q_player: Query<(&mut Transform, &AABB), With<Player>>,
     q_pipes: Query<(&AABB, &GlobalTransform), With<Pipe>>,
-    q_pipe_entities: Query<Entity, (With<Pipe>, With<Children>)>,
-    mut commands: Commands
+    mut commands: Commands,
 ) {
-    let Ok((mut trans, player_aabb, mut vel)) = q_player.single_mut() else {
+    let Ok((mut trans, player_aabb)) = q_player.single_mut() else {
         return;
     };
 
@@ -109,16 +180,23 @@ fn player_collisions(
         }
 
         info!("Player collided with pipe!");
-        should_reset = true;
+        commands.trigger(PlayerDeath {});
     }
+}
 
-    if !should_reset { return; }
+fn on_player_death(
+    event: On<PlayerDeath>,
+    mut q_player: Query<(&mut Transform, &AABB, &mut Velocity), With<Player>>,
+    q_pipe_entities: Query<Entity, (With<Pipe>, With<Children>)>,
+    mut commands: Commands,
+) {
+    let Ok((mut trans, player_aabb, mut vel)) = q_player.single_mut() else {
+        return;
+    };
     for entity in q_pipe_entities.iter() {
         commands.entity(entity).despawn();
     }
 
     trans.translation.y = 0.0;
     vel.dy = 0.0;
-    
-    
- }
+}

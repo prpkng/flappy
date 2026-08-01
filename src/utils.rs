@@ -1,5 +1,4 @@
-use bevy::math::FloatExt;
-
+use bevy::{image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor}, math::FloatExt, utils::default};
 
 pub trait InterpExt {
     fn pow_interp(&self, to: Self, smoothing: f32, delta: f32) -> Self;
@@ -16,3 +15,15 @@ impl InterpExt for f32 {
     }
 }
 
+// Spawn background
+pub fn repeat_texture_settings() -> ImageLoaderSettings {
+    ImageLoaderSettings {
+        sampler: ImageSampler::Descriptor(ImageSamplerDescriptor {
+            // rewriting mode to repeat image,
+            address_mode_u: ImageAddressMode::Repeat,
+            address_mode_v: ImageAddressMode::Repeat,
+            ..default()
+        }),
+        ..default()
+    }
+}

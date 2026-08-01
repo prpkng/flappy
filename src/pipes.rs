@@ -1,10 +1,7 @@
 use bevy::{prelude::*, text::FontSourceTemplate::Math};
 use rand::{RngExt, SeedableRng};
 
-use crate::{
-    gameplay::AABB,
-    gameplay::{GAME_HEIGHT, GAME_WIDTH},
-};
+use crate::gameplay::{AABB, GAME_HEIGHT, GAME_WIDTH, GameState};
 
 const OPENING_SIZE: f32 = 70.;
 
@@ -40,7 +37,7 @@ struct PipeBundle {
 
 impl Plugin for PipePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (spawn_pipes, free_pipes, pipe_scrolling));
+        app.add_systems(Update, (spawn_pipes, free_pipes, pipe_scrolling).run_if(in_state(GameState::InGame)));
         app.insert_resource(PipeSpawner {
             counter: f32::INFINITY,
             spawned_pipes: 0,
