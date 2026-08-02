@@ -8,19 +8,19 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{gameplay::{GAME_HEIGHT, GameState, MainCamera, Parallax}, utils::repeat_texture_settings};
+use crate::{gameplay::{GAME_HEIGHT, GameState, MainCamera, Parallax}, utilities::repeat_texture_settings};
 
 #[derive(EntityEvent)]
-struct HoverEnter(Entity);
+pub struct HoverEnter(Entity);
 
 #[derive(EntityEvent)]
-struct HoverExit(Entity);
+pub struct HoverExit(Entity);
 
 #[derive(EntityEvent)]
-struct ButtonPressed(Entity);
+pub struct ButtonPressed(Entity);
 
 #[derive(EntityEvent)]
-struct ButtonReleased(Entity);
+pub struct ButtonReleased(Entity);
 
 #[derive(Component, Default)]
 pub struct Hoverable {
@@ -33,11 +33,9 @@ pub struct SpriteButton {
     pub hover_frame_idx: usize,
     pub pressed_frame_idx: usize,
 
-    is_pressed: bool,
+    pub is_pressed: bool,
 }
 
-#[derive(Component)]
-struct StartBtn;
 
 pub struct GameUIPlugin;
 
@@ -54,7 +52,6 @@ impl Plugin for GameUIPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InputFocus>();
         app.init_resource::<MousePos>();
-        app.add_systems(OnEnter(GameState::MainMenu), setup_main_menu_ui);
         app.add_systems(
             Update,
             (
@@ -65,75 +62,15 @@ impl Plugin for GameUIPlugin {
                 .chain(),
         );
 
-        app.add_observer(
-            |_: On<ButtonReleased>,
-             _: Single<(), With<StartBtn>>,
-             mut next: ResMut<NextState<GameState>>| {
-                next.set(GameState::InGame);
-            },
-        );
+
+        
     }
 }
 
 #[derive(Component)]
-struct Title;
+pub struct Title;
 
-fn setup_main_menu_ui(
-    mut commands: Commands,
-    assets: Res<AssetServer>,
-    mut atlases: ResMut<Assets<TextureAtlasLayout>>,
-) {
-    commands.spawn((
-        Name::new("Flappy Bird Title"),
-        Transform::from_xyz(0., 64., 10.),
-        Sprite {
-            image: assets.load("titles.png"),
-            rect: Some(Rect::new(0., 0., 96., 32.)),
-            ..default()
-        },
-        Title {},
-        DespawnOnExit(GameState::MainMenu),
-    ));
 
-    let layout = TextureAtlasLayout::from_grid(UVec2::new(48, 16), 3, 6, None, None);
-    let atlas_layout = atlases.add(layout);
-
-    commands.spawn((
-        Name::new("Buttons"),
-        Transform::from_xyz(0., -32., 20.),
-        Sprite {
-            image: assets.load("buttons.png"),
-            texture_atlas: Some(TextureAtlas {
-                layout: atlas_layout,
-                index: 15,
-            }),
-            ..default()
-        },
-        SpriteButton {
-            normal_frame_idx: 15,
-            hover_frame_idx: 16,
-            pressed_frame_idx: 17,
-            ..Default::default()
-        },
-        Hoverable::default(),
-        Test {},
-        DespawnOnExit(GameState::MainMenu),
-        StartBtn,
-    ));
-
-    commands.spawn((
-        Parallax { speed: 70. },
-        Transform::from_translation(Vec3::new(0., -GAME_HEIGHT / 2.0 + 56.0 / 2.0, 0.)),
-        Sprite::from_image(
-            assets
-                .load_builder()
-                .with_settings(|s: &mut _| *s = repeat_texture_settings())
-                .load("ground.png"),
-        ),
-        DespawnOnExit(GameState::MainMenu),
-    ));
-    info!("Setting up UI");
-}
 
 fn calculate_mouse_pos(
     mut mp: ResMut<MousePos>,

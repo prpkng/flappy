@@ -1,12 +1,9 @@
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
-use bevy::prelude::*;
+use bevy::{color::palettes::tailwind::RED_500, prelude::*};
 
 use crate::{
-    gameplay::{AABB, GAME_HEIGHT, GameState},
-    pipes::Pipe,
-    ui::Hoverable,
-    utils::InterpExt,
+    gameplay::{AABB, GAME_HEIGHT, GameOverEvent, GameState}, pipes::{Pipe, PipesSet}, ui::Hoverable, utilities::InterpExt,
 };
 
 const GRAVITY: f32 = 320.0;
@@ -46,15 +43,17 @@ impl Plugin for PlayerPlugin {
                 animate_sprites,
                 set_player_anim_speed,
                 set_player_x_pos,
-                (menu_sine_wave).run_if(not(in_state(GameState::InGame))),
-                (
-                    player_gravity,
-                    player_input,
-                    player_rotation,
-                    player_collisions,
-                )
+                player_input,
+                (menu_sine_wave)
+                    .run_if(in_state(GameState::MainMenu).or_else(in_state(GameState::Preparing))),
+                (player_gravity, player_rotation)
                     .run_if(in_state(GameState::InGame)),
+                player_gravity.run_if(in_state(GameState::GameOver))
             ),
+        );
+
+        app.add_systems(
+            Update, player_collisions.run_if(in_state(GameState::InGame)).before(PipesSet)
         );
 
         app.add_observer(on_player_death);
@@ -99,13 +98,16 @@ fn spawn_player(
 fn set_player_x_pos(
     mut trans: Single<&mut Transform, With<Player>>,
     state: Res<State<GameState>>,
-    time: Res<Time>
+    time: Res<Time>,
 ) {
     let target = match state.get() {
-        GameState::Preparing | GameState::MainMenu => 0.0,
-        GameState::InGame => -16.
+        GameState::MainMenu => 0.0,
+        GameState::Preparing | GameState::InGame | GameState::GameOver => -16.,
     };
-    trans.translation.x = trans.translation.x.exp_interp(target, 16., time.delta_secs())
+    trans.translation.x = trans
+        .translation
+        .x
+        .exp_interp(target, 16., time.delta_secs())
 }
 
 fn set_player_anim_speed(
@@ -114,12 +116,17 @@ fn set_player_anim_speed(
 ) {
     for msg in trans_msg.read() {
         if let Some(new) = msg.entered.as_ref() {
-            timer.set_duration(Duration::from_secs_f32(
-                match new {
-                    GameState::MainMenu => 1.0 / 13.0,
-                    GameState::InGame | GameState::Preparing => 1.0 / 20.0
-                }
-            ));
+            if *new == GameState::GameOver {
+                timer.pause();
+                continue;
+            }
+            timer.set_duration(Duration::from_secs_f32(match new {
+                GameState::MainMenu | GameState::Preparing => 1.0 / 13.0,
+                _ => 1.0 / 20.0,
+            }));
+            if timer.is_paused() {
+                timer.unpause();
+            }
         }
     }
 }
@@ -161,6 +168,8 @@ fn menu_sine_wave(mut query: Query<&mut Transform, With<Player>>, time: Res<Time
 
 fn player_input(
     mut query: Query<&mut Velocity, With<Player>>,
+    state: Res<State<GameState>>,
+    mut next: ResMut<NextState<GameState>>,
     kb: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
 ) {
@@ -168,9 +177,18 @@ fn player_input(
         return;
     };
 
-    if mouse.just_pressed(MouseButton::Left) || kb.just_pressed(KeyCode::Space) {
-        velocity.dy = JUMP_FORCE;
-    }
+    match state.get() {
+        GameState::InGame | GameState::Preparing => {
+            if mouse.just_pressed(MouseButton::Left) || kb.just_pressed(KeyCode::Space) {
+                velocity.dy = JUMP_FORCE;
+                
+            if *state.get() != GameState::InGame {
+                next.set(GameState::InGame);
+            }
+            }
+        }
+        _ => {}
+    };
 }
 
 fn player_gravity(
@@ -198,15 +216,22 @@ fn player_rotation(mut query: Query<(&mut Transform, &Velocity), With<Player>>, 
         return;
     };
 
+    let vel = velocity.dy / 4.0;
+
+    let t = f32::inverse_lerp(-25., -45., vel).clamp(0., 1.);
+
+    let target_angle = f32::lerp(PI / 6.0, -PI / 2.0, t);
+
     let last_rot = transform.rotation.to_euler(EulerRot::XYZ).2;
-    let target_rot = last_rot.exp_interp((velocity.dy / 4.0).to_radians(), 15.0, time.delta_secs());
-    transform.rotation = Quat::from_rotation_z(target_rot);
+    let interp_rot = last_rot.exp_interp(target_angle, 15.0, time.delta_secs());
+    transform.rotation = Quat::from_rotation_z(interp_rot);
 }
 
 fn player_collisions(
     mut q_player: Query<(&mut Transform, &AABB), With<Player>>,
-    q_pipes: Query<(&AABB, &GlobalTransform), With<Pipe>>,
+    q_pipes: Query<(&GlobalTransform, &AABB), (Without<Children>, With<Pipe>)>,
     mut commands: Commands,
+    mut gizmos: Gizmos,
 ) {
     let Ok((mut trans, player_aabb)) = q_player.single_mut() else {
         return;
@@ -215,13 +240,17 @@ fn player_collisions(
     let mut should_reset = false;
 
     let player_rect = player_aabb.rect.translate(trans.translation.xy());
-    for (aabb, pipe_trans) in q_pipes.iter() {
+    for (pipe_trans, aabb) in q_pipes.iter() {
         let rect = aabb.rect.translate(pipe_trans.translation().xy());
+        gizmos.rect_2d(Isometry2d::from_translation(rect.center()), rect.size(), RED_500);
         if rect.intersect(player_rect).is_empty() {
             continue;
         }
 
-        info!("Player collided with pipe!");
+        commands.trigger(PlayerDeath {});
+    }
+
+    if trans.translation.y < -GAME_HEIGHT / 2.0 + 56. {
         commands.trigger(PlayerDeath {});
     }
 }
@@ -235,10 +264,12 @@ fn on_player_death(
     let Ok((mut trans, player_aabb, mut vel)) = q_player.single_mut() else {
         return;
     };
-    for entity in q_pipe_entities.iter() {
-        commands.entity(entity).despawn();
-    }
+    // for entity in q_pipe_entities.iter() {
+    //     commands.entity(entity).despawn();
+    // }
 
-    trans.translation.y = 0.0;
+    commands.trigger(GameOverEvent {});
+
+    // trans.translation.y = 0.0;
     vel.dy = 0.0;
 }

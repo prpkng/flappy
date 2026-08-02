@@ -3,11 +3,11 @@ use rand::{RngExt, SeedableRng};
 
 use crate::gameplay::{AABB, GAME_HEIGHT, GAME_WIDTH, GameState};
 
-const OPENING_SIZE: f32 = 70.;
+const OPENING_SIZE: f32 = 50.;
 
-const SCROLLING_SPEED: f32 = 40.0;
+pub const SCROLLING_SPEED: f32 = 40.0;
 const SPAWN_FREQUENCY: f32 = 3.;
-const SPAWN_MIN_Y: f32 = -GAME_HEIGHT / 2. + OPENING_SIZE + 16.;
+const SPAWN_MIN_Y: f32 = -GAME_HEIGHT / 2. + 56.0 + OPENING_SIZE + 16.;
 const SPAWN_MAX_Y: f32 = GAME_HEIGHT / 2. - OPENING_SIZE + 16.;
 
 #[derive(Component)]
@@ -26,6 +26,9 @@ struct SpawnPipeEvent {
     index: i32,
 }
 
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PipesSet;
+
 pub struct PipePlugin;
 
 #[derive(Bundle)]
@@ -37,7 +40,9 @@ struct PipeBundle {
 
 impl Plugin for PipePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (spawn_pipes, free_pipes, pipe_scrolling).run_if(in_state(GameState::InGame)));
+        app.add_systems(Update, (spawn_pipes, free_pipes, pipe_scrolling)
+            .in_set(PipesSet)
+            .run_if(in_state(GameState::InGame)));
         app.insert_resource(PipeSpawner {
             counter: f32::INFINITY,
             spawned_pipes: 0,
@@ -152,23 +157,6 @@ fn on_pipe_spawned(
         .insert(ChildOf(entity));
 
     println!("Spawning pipe at {}", event.pipe_y);
-
-    // // Spawn top pipe
-    // let size = Vec2::new(32., (GAME_HEIGHT/2.0 - event.pipe_y).abs() - OPENING_SIZE/2.0);
-    // commands.spawn(PipeBundle {
-    //     pipe: Pipe {},
-    //     transform: Transform::from_translation(Vec3::new(
-    //         GAME_WIDTH / 2. + size.x/2.0,
-    //         -GAME_HEIGHT / 2. + size.y/2.0,
-    //         10.0,
-    //     )),
-    //     sprite: Sprite {
-    //         image: asset_server.load("pipe.png"),
-    //         rect: Some(Rect::new(0., 16., 32., 16.)),
-    //         custom_size: Some(size),
-    //         ..default()
-    //     },
-    // });
 }
 
 fn spawn_pipes(mut commands: Commands, time: Res<Time>, mut spawner: ResMut<PipeSpawner>) {

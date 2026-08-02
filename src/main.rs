@@ -1,9 +1,10 @@
 mod debug;
 mod gameplay;
 mod pipes;
-mod utils;
+mod utilities;
 mod player;
 mod ui;
+mod screens;
 
 use crate::{
     debug::DebugPlugin, gameplay::{GAME_HEIGHT, GAME_WIDTH, GameplayPlugin}, pipes::PipePlugin, player::PlayerPlugin, ui::GameUIPlugin,

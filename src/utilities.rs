@@ -1,4 +1,9 @@
-use bevy::{image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor}, math::FloatExt, utils::default};
+
+
+use bevy::{
+    math::FloatExt, utils::default,
+};
+use bevy::image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor};
 
 pub trait InterpExt {
     fn pow_interp(&self, to: Self, smoothing: f32, delta: f32) -> Self;
