@@ -5,8 +5,8 @@ use crate::gameplay::{AABB, GAME_HEIGHT, GAME_WIDTH, GameState};
 
 const OPENING_SIZE: f32 = 70.;
 
-const SCROLLING_SPEED: f32 = 30.0;
-const SPAWN_FREQUENCY: f32 = 4.;
+const SCROLLING_SPEED: f32 = 40.0;
+const SPAWN_FREQUENCY: f32 = 3.;
 const SPAWN_MIN_Y: f32 = -GAME_HEIGHT / 2. + OPENING_SIZE + 16.;
 const SPAWN_MAX_Y: f32 = GAME_HEIGHT / 2. - OPENING_SIZE + 16.;
 

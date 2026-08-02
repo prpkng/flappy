@@ -20,6 +20,7 @@ fn main() {
                         name: Some("flappy".into()),
                         resolution: WindowResolution::new(GAME_WIDTH as u32 * 2, GAME_HEIGHT as u32 * 2),
                         position: WindowPosition::Centered(MonitorSelection::Primary),
+                        present_mode: bevy::window::PresentMode::Immediate,
                         ..Default::default()
                     }),
                     ..Default::default()

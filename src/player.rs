@@ -1,14 +1,17 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 
 use crate::{
     gameplay::{AABB, GAME_HEIGHT, GameState},
     pipes::Pipe,
+    ui::Hoverable,
     utils::InterpExt,
 };
 
 const GRAVITY: f32 = 320.0;
 const MAX_FALL_SPEED: f32 = 180.0;
-const JUMP_FORCE: f32 = 135.0;
+const JUMP_FORCE: f32 = 120.0;
 
 #[derive(Event)]
 pub struct PlayerDeath {}
@@ -41,8 +44,9 @@ impl Plugin for PlayerPlugin {
             Update,
             (
                 animate_sprites,
-                (menu_sine_wave)
-                    .run_if(not(in_state(GameState::InGame))),
+                set_player_anim_speed,
+                set_player_x_pos,
+                (menu_sine_wave).run_if(not(in_state(GameState::InGame))),
                 (
                     player_gravity,
                     player_input,
@@ -65,7 +69,10 @@ fn spawn_player(
     let texture = asset_server.load("bird.png");
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(32), 4, 1, None, None);
     let atlas_layout = atlas_layouts.add(layout);
-    let animation_indices = AnimationIndices { frames: vec![0, 0, 1, 2, 1], current_index: 0 };
+    let animation_indices = AnimationIndices {
+        frames: vec![0, 0, 1, 2, 1],
+        current_index: 0,
+    };
 
     commands.spawn((
         Name::new("Player"),
@@ -81,11 +88,40 @@ fn spawn_player(
             },
         ),
         animation_indices,
-        AnimationTimer(Timer::from_seconds(1.0/13.0, TimerMode::Repeating)),
+        Hoverable::default(),
+        AnimationTimer(Timer::from_seconds(1.0 / 13.0, TimerMode::Repeating)),
         AABB {
             rect: Rect::from_center_size(Vec2::ZERO, Vec2::ONE * 16.0),
         },
     ));
+}
+
+fn set_player_x_pos(
+    mut trans: Single<&mut Transform, With<Player>>,
+    state: Res<State<GameState>>,
+    time: Res<Time>
+) {
+    let target = match state.get() {
+        GameState::Preparing | GameState::MainMenu => 0.0,
+        GameState::InGame => -16.
+    };
+    trans.translation.x = trans.translation.x.exp_interp(target, 16., time.delta_secs())
+}
+
+fn set_player_anim_speed(
+    mut timer: Single<&mut AnimationTimer, With<Player>>,
+    mut trans_msg: MessageReader<StateTransitionEvent<GameState>>,
+) {
+    for msg in trans_msg.read() {
+        if let Some(new) = msg.entered.as_ref() {
+            timer.set_duration(Duration::from_secs_f32(
+                match new {
+                    GameState::MainMenu => 1.0 / 13.0,
+                    GameState::InGame | GameState::Preparing => 1.0 / 20.0
+                }
+            ));
+        }
+    }
 }
 
 fn animate_sprites(
@@ -98,7 +134,7 @@ fn animate_sprites(
         if timer.just_finished()
             && let Some(atlas) = &mut sprite.texture_atlas
         {
-            indices.current_index = if indices.current_index >= indices.frames.len()-1 {
+            indices.current_index = if indices.current_index >= indices.frames.len() - 1 {
                 0
             } else {
                 indices.current_index + 1
@@ -108,26 +144,31 @@ fn animate_sprites(
     }
 }
 
-
 // ==== IN MENU =====
 
 const MENU_SINE_FREQ: f32 = 7.5;
 const MENU_SINE_AMP: f32 = 4.;
 
 fn menu_sine_wave(mut query: Query<&mut Transform, With<Player>>, time: Res<Time>) {
-    let Ok(mut transform) = query.single_mut() else { return; };
+    let Ok(mut transform) = query.single_mut() else {
+        return;
+    };
 
     transform.translation.y = 16. + f32::sin(time.elapsed_secs() * MENU_SINE_FREQ) * MENU_SINE_AMP;
 }
 
 // ==== IN GAME =====
 
-fn player_input(mut query: Query<&mut Velocity, With<Player>>, input: Res<ButtonInput<KeyCode>>) {
+fn player_input(
+    mut query: Query<&mut Velocity, With<Player>>,
+    kb: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+) {
     let Ok(mut velocity) = query.single_mut() else {
         return;
     };
 
-    if input.just_pressed(KeyCode::Space) {
+    if mouse.just_pressed(MouseButton::Left) || kb.just_pressed(KeyCode::Space) {
         velocity.dy = JUMP_FORCE;
     }
 }

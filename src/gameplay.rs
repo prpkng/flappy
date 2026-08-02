@@ -31,15 +31,13 @@ pub struct AABB {
 }
 
 #[derive(Component)]
-struct Parallax {
-    speed: f32,
+pub struct Parallax {
+    pub speed: f32,
 }
 
 #[derive(Component)]
 pub struct MainCamera;
 
-#[derive(Component)]
-struct Title;
 
 pub struct GameplayPlugin;
 impl Plugin for GameplayPlugin {
@@ -50,22 +48,7 @@ impl Plugin for GameplayPlugin {
         app.init_state::<GameState>();
         app.insert_resource(GameInfo::default());
         app.add_systems(Update, parallax_system);
-
-        app.add_systems(OnEnter(GameState::MainMenu), setup_menu);
     }
-}
-
-fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn((
-        Name::new("Flappy Bird Title"),
-        Transform::from_xyz(0., 64., 10.),
-        Sprite {
-            image: asset_server.load("titles.png"),
-            rect: Some(Rect::new(0., 0., 96., 32.)),
-            ..default()
-        },
-        Title{}
-    ));
 }
 
 
@@ -101,16 +84,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ),
     ));
 
-    commands.spawn((
-        Parallax { speed: 70. },
-        Transform::from_translation(Vec3::new(0., -GAME_HEIGHT/2.0 + 56.0/2.0, 0.)),
-        Sprite::from_image(
-            asset_server
-                .load_builder()
-                .with_settings(|s: &mut _| { *s = repeat_texture_settings()} )
-                .load("ground.png"),
-        ),
-    ));
 }
 
 fn parallax_system(
