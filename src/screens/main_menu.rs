@@ -1,23 +1,14 @@
 use bevy::prelude::*;
 
 use crate::{
-    gameplay::GameState, ui::{ButtonReleased, Hoverable, SpriteButton, Title},
+    gameplay::GameState, ui::{ButtonReleased, Hoverable, MenuButtonAction, SpriteButton, Title},
 };
 
 pub fn setup(app: &mut App) {
     app.add_systems(OnEnter(GameState::MainMenu), setup_main_menu_ui);
     app.add_systems(Update, check_start_keypress.run_if(in_state(GameState::MainMenu)));
-    app.add_observer(
-        |_: On<ButtonReleased>,
-         _: Single<(), With<StartBtn>>,
-         mut next: ResMut<NextState<GameState>>| {
-            next.set(GameState::Preparing);
-        },
-    );
+    
 }
-
-#[derive(Component)]
-struct StartBtn;
 
 fn check_start_keypress(mut next: ResMut<NextState<GameState>>, input: Res<ButtonInput<KeyCode>>) {
     if !input.just_released(KeyCode::Space) {return;}
@@ -64,7 +55,7 @@ fn setup_main_menu_ui(
         },
         Hoverable::default(),
         DespawnOnExit(GameState::MainMenu),
-        StartBtn,
+        MenuButtonAction::StartGame,
     ));
 
     info!("Setting up UI");

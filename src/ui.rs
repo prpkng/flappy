@@ -36,6 +36,11 @@ pub struct SpriteButton {
     pub is_pressed: bool,
 }
 
+#[derive(Component)]
+pub enum MenuButtonAction {
+    StartGame,
+    TryAgain
+}
 
 pub struct GameUIPlugin;
 
@@ -62,7 +67,17 @@ impl Plugin for GameUIPlugin {
                 .chain(),
         );
 
-
+        app.add_observer(
+        |_: On<ButtonReleased>,
+         action: Single<&MenuButtonAction>,
+         mut next: ResMut<NextState<GameState>>| {
+            match *action {
+                MenuButtonAction::StartGame => next.set(GameState::Preparing),
+                MenuButtonAction::TryAgain => next.set(GameState::Preparing),
+            };
+            
+        },
+    );
         
     }
 }
